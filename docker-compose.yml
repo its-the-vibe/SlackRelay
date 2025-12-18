@@ -1,0 +1,20 @@
+services:
+  slack-relay:
+    build: .
+    read_only: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${PORT:-8080}:${PORT:-8080}"
+    environment:
+      - PORT=${PORT:-8080}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - CONFIG_FILE=${CONFIG_FILE:-/app/config.json}
+      - REDIS_HOST=${REDIS_HOST:-host.docker.internal}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+    volumes:
+      # Mount .secret file if it exists (optional)
+      - ./.secret:/app/.secret:ro
+      # Mount config.json file (required)
+      - ./config.json:/app/config.json:ro
+    restart: unless-stopped
