@@ -28,6 +28,12 @@ const (
 	ERROR
 )
 
+const (
+	// slackTimestampToleranceSeconds is the maximum age of a Slack request timestamp
+	// Slack recommends rejecting requests older than 5 minutes to prevent replay attacks
+	slackTimestampToleranceSeconds = 300
+)
+
 // EventConfig represents the configuration for a Slack event type
 type EventConfig struct {
 	EventType string `json:"slack-event-type"`
@@ -122,7 +128,7 @@ func verifySlackSignature(body []byte, timestamp string, signature string) bool 
 	}
 
 	now := time.Now().Unix()
-	if absInt64(now-ts) > 300 { // 5 minutes
+	if absInt64(now-ts) > slackTimestampToleranceSeconds {
 		logWarn("Request timestamp too old or too far in the future")
 		return false
 	}
