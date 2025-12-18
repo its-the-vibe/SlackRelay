@@ -1,0 +1,38 @@
+[
+  {
+    "slack-event-type": "message",
+    "channel": "slack-relay-message"
+  },
+  {
+    "slack-event-type": "app_mention",
+    "channel": "slack-relay-app-mention"
+  },
+  {
+    "slack-event-type": "reaction_added",
+    "channel": "slack-relay-reaction-added"
+  },
+  {
+    "slack-event-type": "reaction_removed",
+    "channel": "slack-relay-reaction-removed"
+  },
+  {
+    "slack-event-type": "channel_created",
+    "channel": "slack-relay-channel-created"
+  },
+  {
+    "slack-event-type": "channel_deleted",
+    "channel": "slack-relay-channel-deleted"
+  },
+  {
+    "slack-event-type": "channel_rename",
+    "channel": "slack-relay-channel-rename"
+  },
+  {
+    "slack-event-type": "member_joined_channel",
+    "channel": "slack-relay-member-joined"
+  },
+  {
+    "slack-event-type": "member_left_channel",
+    "channel": "slack-relay-member-left"
+  }
+]

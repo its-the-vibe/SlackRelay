@@ -1,0 +1,6 @@
+[
+  {
+    "slack-event-type": "message",
+    "channel": "slack-relay-message"
+  }
+]
