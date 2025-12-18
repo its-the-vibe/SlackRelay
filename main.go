@@ -122,7 +122,7 @@ func verifySlackSignature(body []byte, timestamp string, signature string) bool 
 	}
 
 	now := time.Now().Unix()
-	if abs(now-ts) > 300 { // 5 minutes
+	if absInt64(now-ts) > 300 { // 5 minutes
 		logWarn("Request timestamp too old or too far in the future")
 		return false
 	}
@@ -144,7 +144,7 @@ func verifySlackSignature(body []byte, timestamp string, signature string) bool 
 	return hmac.Equal([]byte(signatureHash), []byte(expectedSignature))
 }
 
-func abs(x int64) int64 {
+func absInt64(x int64) int64 {
 	if x < 0 {
 		return -x
 	}
@@ -192,7 +192,9 @@ func slackHandler(w http.ResponseWriter, r *http.Request) {
 		logInfo("Responding to URL verification challenge")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(fmt.Sprintf(`{"challenge":"%s"}`, challenge))); err != nil {
+		
+		response := map[string]string{"challenge": challenge}
+		if err := json.NewEncoder(w).Encode(response); err != nil {
 			logError("Error writing response: %v", err)
 		}
 		return
@@ -318,8 +320,9 @@ func main() {
 		Addr: redisAddr,
 	})
 
-	// Test Redis connection
-	ctx := context.Background()
+	// Test Redis connection with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	_, err = redisClient.Ping(ctx).Result()
 	if err != nil {
 		logWarn("Could not connect to Redis at %s: %v", redisAddr, err)
