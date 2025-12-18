@@ -23,6 +23,9 @@ FROM scratch
 
 WORKDIR /app
 
+# Copy CA certificates from builder
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
 # Copy the binary from builder
 COPY --from=builder /app/slack-relay .
 

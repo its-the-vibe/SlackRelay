@@ -241,7 +241,7 @@ func slackHandler(w http.ResponseWriter, r *http.Request) {
 		jsonOutput, err := json.MarshalIndent(payload, "", "  ")
 		if err != nil {
 			logError("Error formatting JSON: %v", err)
-			fmt.Println(string(body))
+			logDebug("Raw payload: %s", string(body))
 		} else {
 			logDebug("Slack event payload:\n%s", string(jsonOutput))
 		}
