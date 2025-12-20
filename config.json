@@ -9,6 +9,7 @@
   },
   {
     "slack-event-type": "view_submission",
-    "channel": "slack-relay-view-submission"
+    "channel": "slack-relay-view-submission",
+    "response": {"response_action": "clear"}
   }
 ]
