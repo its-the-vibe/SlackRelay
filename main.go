@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -180,12 +181,41 @@ func slackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse the JSON payload
+	// Parse the payload based on Content-Type
 	var payload map[string]interface{}
-	err = json.Unmarshal(body, &payload)
-	if err != nil {
-		http.Error(w, "Error parsing JSON", http.StatusBadRequest)
-		return
+	var jsonPayload []byte
+	
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		// Parse URL-encoded form data
+		formValues, err := url.ParseQuery(string(body))
+		if err != nil {
+			http.Error(w, "Error parsing form data", http.StatusBadRequest)
+			return
+		}
+		
+		// Extract the payload parameter
+		payloadStr := formValues.Get("payload")
+		if payloadStr == "" {
+			http.Error(w, "Missing payload parameter", http.StatusBadRequest)
+			return
+		}
+		
+		// Parse the payload as JSON
+		err = json.Unmarshal([]byte(payloadStr), &payload)
+		if err != nil {
+			http.Error(w, "Error parsing JSON from payload parameter", http.StatusBadRequest)
+			return
+		}
+		jsonPayload = []byte(payloadStr)
+	} else {
+		// Default to application/json
+		err = json.Unmarshal(body, &payload)
+		if err != nil {
+			http.Error(w, "Error parsing JSON", http.StatusBadRequest)
+			return
+		}
+		jsonPayload = body
 	}
 
 	// Handle URL verification challenge
@@ -249,7 +279,7 @@ func slackHandler(w http.ResponseWriter, r *http.Request) {
 		jsonOutput, err := json.MarshalIndent(payload, "", "  ")
 		if err != nil {
 			logError("Error formatting JSON: %v", err)
-			logDebug("Raw payload: %s", string(body))
+			logDebug("Raw payload: %s", string(jsonPayload))
 		} else {
 			logDebug("Slack event payload:\n%s", string(jsonOutput))
 		}
@@ -260,7 +290,7 @@ func slackHandler(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		err = redisClient.Publish(ctx, channel, body).Err()
+		err = redisClient.Publish(ctx, channel, jsonPayload).Err()
 		if err != nil {
 			logError("Error publishing to Redis channel '%s': %v", channel, err)
 			// Don't fail the request if Redis publish fails
