@@ -10,8 +10,7 @@ import (
 	"testing"
 )
 
-func TestSlackHandlerApplicationJSON(t *testing.T) {
-	// Setup
+func setupTestEnvironment() {
 	eventConfigs = []EventConfig{
 		{EventType: "message", Channel: "test-channel"},
 	}
@@ -20,6 +19,10 @@ func TestSlackHandlerApplicationJSON(t *testing.T) {
 		eventChannelMap[config.EventType] = config.Channel
 	}
 	signingSecret = []byte{} // Disable signature verification for tests
+}
+
+func TestSlackHandlerApplicationJSON(t *testing.T) {
+	setupTestEnvironment()
 
 	// Create test payload
 	payload := map[string]interface{}{
@@ -29,7 +32,10 @@ func TestSlackHandlerApplicationJSON(t *testing.T) {
 			"text": "Hello world",
 		},
 	}
-	payloadBytes, _ := json.Marshal(payload)
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPost, "/slack", bytes.NewReader(payloadBytes))
@@ -50,15 +56,7 @@ func TestSlackHandlerApplicationJSON(t *testing.T) {
 }
 
 func TestSlackHandlerURLEncoded(t *testing.T) {
-	// Setup
-	eventConfigs = []EventConfig{
-		{EventType: "message", Channel: "test-channel"},
-	}
-	eventChannelMap = make(map[string]string)
-	for _, config := range eventConfigs {
-		eventChannelMap[config.EventType] = config.Channel
-	}
-	signingSecret = []byte{} // Disable signature verification for tests
+	setupTestEnvironment()
 
 	// Create test payload
 	payload := map[string]interface{}{
@@ -68,7 +66,10 @@ func TestSlackHandlerURLEncoded(t *testing.T) {
 			"text": "Hello world",
 		},
 	}
-	payloadBytes, _ := json.Marshal(payload)
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
 
 	// Create URL-encoded form data
 	formData := url.Values{}
@@ -94,15 +95,17 @@ func TestSlackHandlerURLEncoded(t *testing.T) {
 }
 
 func TestSlackHandlerURLVerification(t *testing.T) {
-	// Setup
-	signingSecret = []byte{} // Disable signature verification for tests
+	setupTestEnvironment()
 
 	// Create test payload
 	payload := map[string]interface{}{
 		"type":      "url_verification",
 		"challenge": "test_challenge",
 	}
-	payloadBytes, _ := json.Marshal(payload)
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
 
 	// Create request
 	req := httptest.NewRequest(http.MethodPost, "/slack", bytes.NewReader(payloadBytes))
@@ -123,7 +126,7 @@ func TestSlackHandlerURLVerification(t *testing.T) {
 
 	// Check challenge response
 	var response map[string]string
-	err := json.NewDecoder(rr.Body).Decode(&response)
+	err = json.NewDecoder(rr.Body).Decode(&response)
 	if err != nil {
 		t.Errorf("failed to decode response: %v", err)
 	}
@@ -133,15 +136,17 @@ func TestSlackHandlerURLVerification(t *testing.T) {
 }
 
 func TestSlackHandlerURLVerificationURLEncoded(t *testing.T) {
-	// Setup
-	signingSecret = []byte{} // Disable signature verification for tests
+	setupTestEnvironment()
 
 	// Create test payload
 	payload := map[string]interface{}{
 		"type":      "url_verification",
 		"challenge": "test_challenge_urlencoded",
 	}
-	payloadBytes, _ := json.Marshal(payload)
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
 
 	// Create URL-encoded form data
 	formData := url.Values{}
@@ -167,7 +172,7 @@ func TestSlackHandlerURLVerificationURLEncoded(t *testing.T) {
 
 	// Check challenge response
 	var response map[string]string
-	err := json.NewDecoder(rr.Body).Decode(&response)
+	err = json.NewDecoder(rr.Body).Decode(&response)
 	if err != nil {
 		t.Errorf("failed to decode response: %v", err)
 	}
@@ -177,8 +182,7 @@ func TestSlackHandlerURLVerificationURLEncoded(t *testing.T) {
 }
 
 func TestSlackHandlerMissingPayloadParameter(t *testing.T) {
-	// Setup
-	signingSecret = []byte{} // Disable signature verification for tests
+	setupTestEnvironment()
 
 	// Create URL-encoded form data without payload parameter
 	formData := url.Values{}
