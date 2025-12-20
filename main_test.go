@@ -207,6 +207,118 @@ func TestSlackHandlerMissingPayloadParameter(t *testing.T) {
 	}
 }
 
+func TestSlackHandlerWithOptionalResponse(t *testing.T) {
+	// Setup test environment with a response configured
+	eventConfigs = []EventConfig{
+		{
+			EventType: "view_submission",
+			Channel:   "test-channel",
+			Response:  map[string]interface{}{"response_action": "clear"},
+		},
+	}
+	eventChannelMap = make(map[string]string)
+	eventResponseMap = make(map[string]map[string]interface{})
+	for _, config := range eventConfigs {
+		eventChannelMap[config.EventType] = config.Channel
+		if config.Response != nil {
+			eventResponseMap[config.EventType] = config.Response
+		}
+	}
+	signingSecret = []byte{} // Disable signature verification for tests
+
+	// Create test payload
+	payload := map[string]interface{}{
+		"type": "view_submission",
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
+
+	// Create request
+	req := httptest.NewRequest(http.MethodPost, "/slack", bytes.NewReader(payloadBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Slack-Request-Timestamp", "1234567890")
+	req.Header.Set("X-Slack-Signature", "v0=test")
+
+	// Create response recorder
+	rr := httptest.NewRecorder()
+
+	// Call handler
+	slackHandler(rr, req)
+
+	// Check response status
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Check response body
+	var response map[string]interface{}
+	err = json.NewDecoder(rr.Body).Decode(&response)
+	if err != nil {
+		t.Errorf("failed to decode response: %v", err)
+	}
+	if response["response_action"] != "clear" {
+		t.Errorf("handler returned wrong response: got %v want %v", response["response_action"], "clear")
+	}
+}
+
+func TestSlackHandlerWithoutOptionalResponse(t *testing.T) {
+	// Setup test environment without a response configured
+	eventConfigs = []EventConfig{
+		{
+			EventType: "message",
+			Channel:   "test-channel",
+		},
+	}
+	eventChannelMap = make(map[string]string)
+	eventResponseMap = make(map[string]map[string]interface{})
+	for _, config := range eventConfigs {
+		eventChannelMap[config.EventType] = config.Channel
+		if config.Response != nil {
+			eventResponseMap[config.EventType] = config.Response
+		}
+	}
+	signingSecret = []byte{} // Disable signature verification for tests
+
+	// Create test payload
+	payload := map[string]interface{}{
+		"type": "event_callback",
+		"event": map[string]interface{}{
+			"type": "message",
+			"text": "Hello world",
+		},
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
+
+	// Create request
+	req := httptest.NewRequest(http.MethodPost, "/slack", bytes.NewReader(payloadBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Slack-Request-Timestamp", "1234567890")
+	req.Header.Set("X-Slack-Signature", "v0=test")
+
+	// Create response recorder
+	rr := httptest.NewRecorder()
+
+	// Call handler
+	slackHandler(rr, req)
+
+	// Check response status
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	// Check response body
+	body := rr.Body.String()
+	if body != "Event received" {
+		t.Errorf("handler returned wrong response: got %v want %v", body, "Event received")
+	}
+}
+
+
 func TestMain(m *testing.M) {
 	// Setup test environment
 	currentLogLevel = ERROR // Reduce logging noise during tests

@@ -34,5 +34,10 @@
   {
     "slack-event-type": "member_left_channel",
     "channel": "slack-relay-member-left"
+  },
+  {
+    "slack-event-type": "view_submission",
+    "channel": "slack-relay-view-submission",
+    "response": {"response_action": "clear"}
   }
 ]

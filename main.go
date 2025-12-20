@@ -37,8 +37,9 @@ const (
 
 // EventConfig represents the configuration for a Slack event type
 type EventConfig struct {
-	EventType string `json:"slack-event-type"`
-	Channel   string `json:"channel"`
+	EventType string                 `json:"slack-event-type"`
+	Channel   string                 `json:"channel"`
+	Response  map[string]interface{} `json:"response,omitempty"`
 }
 
 var signingSecret []byte
@@ -46,6 +47,7 @@ var redisClient *redis.Client
 var currentLogLevel LogLevel = INFO
 var eventConfigs []EventConfig
 var eventChannelMap map[string]string
+var eventResponseMap map[string]map[string]interface{}
 
 // parseLogLevel converts a string to LogLevel
 func parseLogLevel(level string) LogLevel {
@@ -105,8 +107,12 @@ func loadEventConfig(filename string) error {
 
 	// Build a map for quick lookup
 	eventChannelMap = make(map[string]string)
+	eventResponseMap = make(map[string]map[string]interface{})
 	for _, config := range eventConfigs {
 		eventChannelMap[config.EventType] = config.Channel
+		if config.Response != nil {
+			eventResponseMap[config.EventType] = config.Response
+		}
 	}
 
 	return nil
@@ -297,6 +303,16 @@ func slackHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			logInfo("Published event to Redis channel: %s", channel)
 		}
+	}
+
+	// Check if there's a configured response for this event type
+	if response, ok := eventResponseMap[eventType]; ok {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			logError("Error writing response: %v", err)
+		}
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)
