@@ -6,5 +6,9 @@
   {
     "slack-event-type": "reaction_removed",
     "channel": "slack-relay-reaction-removed"
+  },
+  {
+    "slack-event-type": "view_submission",
+    "channel": "slack-relay-view-submission"
   }
 ]
