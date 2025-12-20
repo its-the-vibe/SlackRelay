@@ -15,10 +15,25 @@ func setupTestEnvironment() {
 		{EventType: "message", Channel: "test-channel"},
 	}
 	eventChannelMap = make(map[string]string)
+	eventResponseMap = make(map[string]map[string]interface{})
 	for _, config := range eventConfigs {
 		eventChannelMap[config.EventType] = config.Channel
+		if config.Response != nil {
+			eventResponseMap[config.EventType] = config.Response
+		}
 	}
 	signingSecret = []byte{} // Disable signature verification for tests
+}
+
+func buildEventMaps() {
+	eventChannelMap = make(map[string]string)
+	eventResponseMap = make(map[string]map[string]interface{})
+	for _, config := range eventConfigs {
+		eventChannelMap[config.EventType] = config.Channel
+		if config.Response != nil {
+			eventResponseMap[config.EventType] = config.Response
+		}
+	}
 }
 
 func TestSlackHandlerApplicationJSON(t *testing.T) {
@@ -216,14 +231,7 @@ func TestSlackHandlerWithOptionalResponse(t *testing.T) {
 			Response:  map[string]interface{}{"response_action": "clear"},
 		},
 	}
-	eventChannelMap = make(map[string]string)
-	eventResponseMap = make(map[string]map[string]interface{})
-	for _, config := range eventConfigs {
-		eventChannelMap[config.EventType] = config.Channel
-		if config.Response != nil {
-			eventResponseMap[config.EventType] = config.Response
-		}
-	}
+	buildEventMaps()
 	signingSecret = []byte{} // Disable signature verification for tests
 
 	// Create test payload
@@ -271,14 +279,7 @@ func TestSlackHandlerWithoutOptionalResponse(t *testing.T) {
 			Channel:   "test-channel",
 		},
 	}
-	eventChannelMap = make(map[string]string)
-	eventResponseMap = make(map[string]map[string]interface{})
-	for _, config := range eventConfigs {
-		eventChannelMap[config.EventType] = config.Channel
-		if config.Response != nil {
-			eventResponseMap[config.EventType] = config.Response
-		}
-	}
+	buildEventMaps()
 	signingSecret = []byte{} // Disable signature verification for tests
 
 	// Create test payload
