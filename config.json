@@ -1,10 +1,10 @@
 [
   {
-    "slack-event-type": "message",
-    "channel": "slack-relay-message"
+    "slack-event-type": "reaction_added",
+    "channel": "slack-relay-reaction-added"
   },
   {
-    "slack-event-type": "app_mention",
-    "channel": "slack-relay-app-mention"
+    "slack-event-type": "reaction_removed",
+    "channel": "slack-relay-reaction-removed"
   }
 ]
