@@ -12,6 +12,7 @@ services:
       - CONFIG_FILE=${CONFIG_FILE:-/app/config.json}
       - REDIS_HOST=${REDIS_HOST:-host.docker.internal}
       - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     volumes:
       # Mount .secret file if it exists (optional)
       - ./.secret:/app/.secret:ro

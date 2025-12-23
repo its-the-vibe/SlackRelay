@@ -190,7 +190,7 @@ func slackHandler(w http.ResponseWriter, r *http.Request) {
 	// Parse the payload based on Content-Type
 	var payload map[string]interface{}
 	var jsonPayload []byte
-	
+
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
 		// Parse URL-encoded form data
@@ -199,14 +199,14 @@ func slackHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error parsing form data", http.StatusBadRequest)
 			return
 		}
-		
+
 		// Extract the payload parameter
 		payloadStr := formValues.Get("payload")
 		if payloadStr == "" {
 			http.Error(w, "Missing payload parameter", http.StatusBadRequest)
 			return
 		}
-		
+
 		// Parse the payload as JSON
 		err = json.Unmarshal([]byte(payloadStr), &payload)
 		if err != nil {
@@ -234,7 +234,7 @@ func slackHandler(w http.ResponseWriter, r *http.Request) {
 		logInfo("Responding to URL verification challenge")
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		
+
 		response := map[string]string{"challenge": challenge}
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			logError("Error writing response: %v", err)
@@ -357,6 +357,7 @@ func main() {
 	// Configure Redis connection
 	redisHost := os.Getenv("REDIS_HOST")
 	redisPort := os.Getenv("REDIS_PORT")
+	redisPassword := os.Getenv("REDIS_PASSWORD")
 
 	// Set defaults
 	if redisHost == "" {
@@ -366,11 +367,15 @@ func main() {
 		redisPort = "6379"
 	}
 
-	// Initialize Redis client
+	// Initialize Redis client with optional password
 	redisAddr := fmt.Sprintf("%s:%s", redisHost, redisPort)
-	redisClient = redis.NewClient(&redis.Options{
+	redisOptions := &redis.Options{
 		Addr: redisAddr,
-	})
+	}
+	if redisPassword != "" {
+		redisOptions.Password = redisPassword
+	}
+	redisClient = redis.NewClient(redisOptions)
 
 	// Test Redis connection with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

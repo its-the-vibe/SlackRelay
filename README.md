@@ -103,14 +103,15 @@ The service publishes received events to Redis pub/sub channels based on the eve
 
 - `REDIS_HOST`: Redis server hostname (default: `localhost`)
 - `REDIS_PORT`: Redis server port (default: `6379`)
+- `REDIS_PASSWORD`: (Optional) Redis server password for authentication (default: unset)
 
 **Note:** If the Redis connection fails, the application will log a warning and continue to work without Redis publishing. This ensures the service remains operational even if Redis is unavailable.
 
 ```bash
-# Run with Redis configuration
-REDIS_HOST=redis.example.com REDIS_PORT=6379 ./slack-relay
+# Run with Redis configuration (with optional password)
+REDIS_HOST=redis.example.com REDIS_PORT=6379 REDIS_PASSWORD=yourpassword ./slack-relay
 
-# Run with default Redis settings (connects to localhost:6379)
+# Run with default Redis settings (connects to localhost:6379, no password)
 ./slack-relay
 ```
 
