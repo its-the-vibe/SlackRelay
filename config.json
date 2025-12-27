@@ -11,5 +11,9 @@
     "slack-event-type": "view_submission",
     "channel": "slack-relay-view-submission",
     "response": {"response_action": "clear"}
-  }
+  },
+  {
+    "slack-event-type": "block_actions",
+    "channel": "slack-relay-block-actions"    
+  }  
 ]
