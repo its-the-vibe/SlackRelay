@@ -18,6 +18,7 @@
   },
   {
     "slack-event-type": "message_action",
-    "channel": "slack-relay-message-action"
+    "channel": "slack-relay-message-action",
+    "response": {}
   }
 ]
