@@ -14,6 +14,10 @@
   },
   {
     "slack-event-type": "block_actions",
-    "channel": "slack-relay-block-actions"    
-  }  
+    "channel": "slack-relay-block-actions"
+  },
+  {
+    "slack-event-type": "message_action",
+    "channel": "slack-relay-message-action"
+  }
 ]
