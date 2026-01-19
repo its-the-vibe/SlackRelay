@@ -28,6 +28,9 @@ go.work.sum
 # env file
 .env
 
+# Config file (managed outside repo)
+config.json
+
 # Editor/IDE
 # .idea/
 # .vscode/
