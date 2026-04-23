@@ -1,5 +1,7 @@
 # SlackRelay
 
+[![CI](https://github.com/its-the-vibe/SlackRelay/actions/workflows/ci.yaml/badge.svg)](https://github.com/its-the-vibe/SlackRelay/actions/workflows/ci.yaml)
+
 A simple Go web service which consumes Slack API events and publishes to Redis pub/sub
 
 ## Features
@@ -142,6 +144,26 @@ your-signing-secret-here
 **Security:** The `.secret` file is excluded from version control via `.gitignore`.
 
 ## Building and Running
+
+### Makefile Targets
+
+The project includes a `Makefile` for common development tasks:
+
+| Target  | Description                                     |
+|---------|-------------------------------------------------|
+| `build` | Compile the application binary (`slack-relay`)  |
+| `test`  | Run all unit tests                              |
+| `lint`  | Run `go vet` and check formatting with `gofmt`  |
+| `ci`    | Run `lint`, `build`, and `test` in sequence     |
+| `clean` | Remove the compiled binary                      |
+
+```bash
+make build   # build the binary
+make test    # run tests
+make lint    # lint the code
+make ci      # full CI check (lint + build + test)
+make clean   # remove build artifacts
+```
 
 ### Local Development
 

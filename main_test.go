@@ -2,12 +2,18 @@ package main
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 func setupTestEnvironment() {
@@ -34,6 +40,14 @@ func buildEventMaps() {
 			eventResponseMap[config.EventType] = config.Response
 		}
 	}
+}
+
+// computeTestSignature builds a valid Slack HMAC-SHA256 signature for testing.
+func computeTestSignature(body []byte, timestamp string, secret []byte) string {
+	baseString := fmt.Sprintf("v0:%s:%s", timestamp, string(body))
+	mac := hmac.New(sha256.New, secret)
+	mac.Write([]byte(baseString))
+	return "v0=" + hex.EncodeToString(mac.Sum(nil))
 }
 
 func TestSlackHandlerApplicationJSON(t *testing.T) {
@@ -319,6 +333,286 @@ func TestSlackHandlerWithoutOptionalResponse(t *testing.T) {
 	}
 }
 
+func TestSlackHandlerMethodNotAllowed(t *testing.T) {
+	setupTestEnvironment()
+
+	req := httptest.NewRequest(http.MethodGet, "/slack", nil)
+	rr := httptest.NewRecorder()
+
+	slackHandler(rr, req)
+
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestSlackHandlerInvalidSignature(t *testing.T) {
+	setupTestEnvironment()
+	signingSecret = []byte("test-secret") // Enable signature verification
+
+	payload := map[string]interface{}{"type": "event_callback"}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/slack", bytes.NewReader(payloadBytes))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Slack-Request-Timestamp", "1234567890")
+	req.Header.Set("X-Slack-Signature", "v0=invalidsignature")
+
+	rr := httptest.NewRecorder()
+	slackHandler(rr, req)
+
+	if status := rr.Code; status != http.StatusUnauthorized {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusUnauthorized)
+	}
+}
+
+func TestSlackHandlerUnconfiguredEventType(t *testing.T) {
+	setupTestEnvironment()
+
+	// Send an event type that is not in the config
+	payload := map[string]interface{}{
+		"type": "event_callback",
+		"event": map[string]interface{}{
+			"type": "app_mention",
+		},
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/slack", bytes.NewReader(payloadBytes))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	slackHandler(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	body := rr.Body.String()
+	if body != "Event received but event type not configured" {
+		t.Errorf("handler returned wrong body: got %v", body)
+	}
+}
+
+func TestSlackHandlerUnknownEventType(t *testing.T) {
+	setupTestEnvironment()
+
+	// Payload with no type field
+	payload := map[string]interface{}{
+		"text": "hello",
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal test payload: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/slack", bytes.NewReader(payloadBytes))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	slackHandler(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	body := rr.Body.String()
+	if body != "Event received but type unknown" {
+		t.Errorf("handler returned wrong body: got %v", body)
+	}
+}
+
+func TestSlackHandlerInvalidJSON(t *testing.T) {
+	setupTestEnvironment()
+
+	req := httptest.NewRequest(http.MethodPost, "/slack", bytes.NewReader([]byte("not-json{")))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	slackHandler(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+	}
+}
+
+func TestSlackHandlerInvalidJSONInFormPayload(t *testing.T) {
+	setupTestEnvironment()
+
+	formData := url.Values{}
+	formData.Set("payload", "not-json{")
+	encodedPayload := formData.Encode()
+
+	req := httptest.NewRequest(http.MethodPost, "/slack", bytes.NewReader([]byte(encodedPayload)))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	rr := httptest.NewRecorder()
+	slackHandler(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+	}
+}
+
+func TestParseLogLevel(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected LogLevel
+	}{
+		{"DEBUG", DEBUG},
+		{"debug", DEBUG},
+		{"INFO", INFO},
+		{"info", INFO},
+		{"WARN", WARN},
+		{"warn", WARN},
+		{"ERROR", ERROR},
+		{"error", ERROR},
+		{"unknown", INFO},
+		{"", INFO},
+	}
+
+	for _, tt := range tests {
+		got := parseLogLevel(tt.input)
+		if got != tt.expected {
+			t.Errorf("parseLogLevel(%q) = %v, want %v", tt.input, got, tt.expected)
+		}
+	}
+}
+
+func TestLoadEventConfig(t *testing.T) {
+	configContent := `[{"slack-event-type":"message","channel":"test-channel"},{"slack-event-type":"view_submission","channel":"test-view-channel","response":{"response_action":"clear"}}]`
+	tmpFile, err := os.CreateTemp("", "config-*.json")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := tmpFile.WriteString(configContent); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+	tmpFile.Close()
+
+	if err := loadEventConfig(tmpFile.Name()); err != nil {
+		t.Fatalf("loadEventConfig returned error: %v", err)
+	}
+
+	if eventChannelMap["message"] != "test-channel" {
+		t.Errorf("expected channel 'test-channel' for 'message', got %v", eventChannelMap["message"])
+	}
+	if eventChannelMap["view_submission"] != "test-view-channel" {
+		t.Errorf("expected channel 'test-view-channel' for 'view_submission', got %v", eventChannelMap["view_submission"])
+	}
+	if eventResponseMap["view_submission"]["response_action"] != "clear" {
+		t.Errorf("expected response_action 'clear', got %v", eventResponseMap["view_submission"]["response_action"])
+	}
+}
+
+func TestLoadEventConfigFileNotFound(t *testing.T) {
+	err := loadEventConfig(filepath.Join(t.TempDir(), "nonexistent.json"))
+	if err == nil {
+		t.Error("expected error for missing file, got nil")
+	}
+}
+
+func TestLoadEventConfigInvalidJSON(t *testing.T) {
+	tmpFile, err := os.CreateTemp("", "config-*.json")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	if _, err := tmpFile.WriteString("not-valid-json"); err != nil {
+		t.Fatalf("failed to write config: %v", err)
+	}
+	tmpFile.Close()
+
+	err = loadEventConfig(tmpFile.Name())
+	if err == nil {
+		t.Error("expected error for invalid JSON, got nil")
+	}
+}
+
+func TestVerifySlackSignature(t *testing.T) {
+	secret := []byte("test-signing-secret")
+	body := []byte(`{"type":"event_callback"}`)
+
+	t.Run("valid signature", func(t *testing.T) {
+		signingSecret = secret
+		ts := fmt.Sprintf("%d", time.Now().Unix())
+		sig := computeTestSignature(body, ts, secret)
+		if !verifySlackSignature(body, ts, sig) {
+			t.Error("expected valid signature to pass verification")
+		}
+	})
+
+	t.Run("empty secret skips verification", func(t *testing.T) {
+		signingSecret = []byte{}
+		if !verifySlackSignature(body, "any", "any") {
+			t.Error("expected verification to be skipped with empty secret")
+		}
+	})
+
+	t.Run("missing timestamp", func(t *testing.T) {
+		signingSecret = secret
+		if verifySlackSignature(body, "", "v0=something") {
+			t.Error("expected false for missing timestamp")
+		}
+	})
+
+	t.Run("missing signature", func(t *testing.T) {
+		signingSecret = secret
+		if verifySlackSignature(body, "1234567890", "") {
+			t.Error("expected false for missing signature")
+		}
+	})
+
+	t.Run("old timestamp", func(t *testing.T) {
+		signingSecret = secret
+		if verifySlackSignature(body, "1000000000", "v0=something") {
+			t.Error("expected false for old timestamp")
+		}
+	})
+
+	t.Run("signature without v0 prefix", func(t *testing.T) {
+		signingSecret = secret
+		ts := fmt.Sprintf("%d", time.Now().Unix())
+		if verifySlackSignature(body, ts, "noprefixsig") {
+			t.Error("expected false for signature without v0= prefix")
+		}
+	})
+
+	t.Run("wrong signature", func(t *testing.T) {
+		signingSecret = secret
+		ts := fmt.Sprintf("%d", time.Now().Unix())
+		if verifySlackSignature(body, ts, "v0=wrongsignature") {
+			t.Error("expected false for wrong signature")
+		}
+	})
+}
+
+func TestAbsInt64(t *testing.T) {
+	tests := []struct {
+		input    int64
+		expected int64
+	}{
+		{5, 5},
+		{-5, 5},
+		{0, 0},
+		{-100, 100},
+	}
+	for _, tt := range tests {
+		got := absInt64(tt.input)
+		if got != tt.expected {
+			t.Errorf("absInt64(%d) = %d, want %d", tt.input, got, tt.expected)
+		}
+	}
+}
 
 func TestMain(m *testing.M) {
 	// Setup test environment
