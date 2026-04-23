@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -513,7 +514,7 @@ func TestLoadEventConfig(t *testing.T) {
 }
 
 func TestLoadEventConfigFileNotFound(t *testing.T) {
-	err := loadEventConfig("/tmp/nonexistent-config-file.json")
+	err := loadEventConfig(filepath.Join(t.TempDir(), "nonexistent.json"))
 	if err == nil {
 		t.Error("expected error for missing file, got nil")
 	}
